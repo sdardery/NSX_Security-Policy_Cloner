@@ -1,3 +1,4 @@
-/infra/domains/default/security-policies/so3ad
-/infra/domains/default/security-policies/so3adsdfsdf
-too7aaa
+/infra/domains/default/security-policies/policy_example1
+/infra/domains/default/security-policies/policy_example2
+
+
