@@ -1,4 +1,2 @@
 /infra/domains/default/security-policies/policy_example1
 /infra/domains/default/security-policies/policy_example2
-
-
