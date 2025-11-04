@@ -16,6 +16,6 @@ Steps :
 
 3- Run the PS1 script from powershell (Make sure the file is unblocked : from Powershell run --> Unblock-File -Path "C:\Path\To\NSX-Security_Policy-Cloner.ps1")
 
-4- The script will only ask you to input source NSX fqdn/ip-username-password and destination NSX fqdn/ip-username-password
+4- The script will  ask you to authenticate both source and Destination NSX.
 
 5- Once script is complete , confirm results in dest NSX UI.
