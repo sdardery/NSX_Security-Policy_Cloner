@@ -2,11 +2,11 @@ NSX Security policy cloner Readme
 
 Important points :
 
--This is ideal for Brownfield to Greenfield
+1- This is ideal for Brownfield to Greenfield
 
--For Brownfield to Brownfield, please note that once a policy is cloned it will overwrite an existing policy in the destination if the path(name) exists. This script also creates any dependent Security rules &  Security groups so it will also overwrite them in the destination.
+2- For Brownfield to Brownfield, please note that once a policy is cloned it will overwrite an existing policy in the destination if the path(name) exists. This script also creates any dependent Security rules &  Security groups so it will also overwrite them in the destination.
 
-- the PS1 file and  policies.txt should be in same folder
+3- the PS1 file and  policies.txt should be in same folder
 
 Steps :
 
