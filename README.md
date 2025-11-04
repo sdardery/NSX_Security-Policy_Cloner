@@ -1,13 +1,21 @@
-NSX Security policy cloner Read ME
+NSX Security policy cloner Readme
+
 Important points :
+
 -This is ideal for Brownfield to Greenfield
+
 -For Brownfield to Brownfield, please note that once a policy is cloned it will overwrite an existing policy in the destination if the path(name) exists. This script also creates any dependent Security rules &  Security groups so it will also overwrite them in the destination.
+
 - the PS1 file and  policies.txt should be in same folder
 
 Steps :
 
 1- Export DFW configuration (https://techdocs.broadcom.com/us/en/vmware-cis/nsx/nsxt-dc/3-2/administration-guide/security/distributed-firewall/export-or-import-a-firewall-configuration.html Steps 1-5)
+
 2- Open Export CSV file and take the security policy paths of those policies you want to clone and paste them in policies.txt (Ive included examples in the txt file).
+
 3- Run the PS1 script from powershell (Make sure the file is unblocked : from Powershell run --> Unblock-File -Path "C:\Path\To\NSX-Security_Policy-Cloner.ps1")
+
 4- The script will only ask you to input source NSX fqdn/ip-username-password and destination NSX fqdn/ip-username-password
+
 5- Once script is complete , confirm results in dest NSX UI.
