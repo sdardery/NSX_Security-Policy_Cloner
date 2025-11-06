@@ -4,7 +4,7 @@ Important points :
 
 1- This is ideal for Brownfield to Greenfield
 
-2- For Brownfield to Brownfield, please note that once a policy is cloned it will overwrite an existing policy in the destination if the path(name) exists. This script also creates any dependent Security rules &  Security groups so it will also overwrite them in the destination.
+2- For Brownfield to Brownfield, please note that once a policy is cloned it will overwrite an existing policy in the destination if the path(name) exists. This script also creates any dependent Security Rules, Custom Security Groups & Custom Services so it will also overwrite them in the destination.
 
 3- the PS1 file and  policies.txt should be in same folder
 
@@ -14,7 +14,7 @@ Steps :
 
 2- Open Export CSV file and take the security policy paths of those policies you want to clone and paste them in policies.txt (Ive included examples in the txt file).
 
-3- Run the PS1 script from powershell (Make sure the file is unblocked : from Powershell run --> Unblock-File -Path "C:\Path\To\NSX-Security_Policy-Cloner.ps1")
+3- Run the PS1 script from powershell (Make sure the file is unblocked once downloaded from powershell : right click on the ps1 file and go to properties and tick on unblock that appears in the General tab)
 
 4- The script will  ask you to authenticate both source and Destination NSX.
 
