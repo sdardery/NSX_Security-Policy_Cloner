@@ -14,7 +14,7 @@ Steps :
 
 2- Open Export CSV file and take the security policy paths of those policies you want to clone and paste them in policies.txt (Ive included examples in the txt file).
 
-3- Run the PS1 script from powershell (Make sure the file is unblocked once downloaded from powershell : right click on the ps1 file and go to properties and tick on unblock that appears in the General tab)
+3- Run the PS1 script from powershell (Make sure the file is unblocked once downloaded from github : right click on the ps1 file and go to properties and tick on unblock that appears in the General tab)
 
 4- The script will  ask you to authenticate both source and Destination NSX.
 
