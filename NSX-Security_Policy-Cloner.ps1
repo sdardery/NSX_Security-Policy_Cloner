@@ -81,8 +81,8 @@ foreach ($rule in $policyContent_json.rules)
   if ($srcgrp -ne "ANY") 
   { # Start creating each non ANY group in target nsx
     Invoke-RestMethod -Method Get -Uri "https://$source_url/policy/api/v1$srcgrp" -headers $source_header -SkipCertificateCheck | ConvertTo-Json -Depth 10 | Set-Content group_detail.json
-    $srcgroup_Body = Get-Content -Path 'group_detail.json' -Raw ### Policy Content TXT Format
-    $srcgroup_json= Get-Content -Path 'group_detail.json' -Raw | ConvertFrom-Json ### Policy Content Powershell Array Format
+    $srcgroup_Body = Get-Content -Path 'group_detail.json' -Raw ### Group Content TXT Format
+    $srcgroup_json= Get-Content -Path 'group_detail.json' -Raw | ConvertFrom-Json ### Group Content Powershell Array Format
 
     ##############Starting to create the Security Groups in the destination NSX  ###############
     Invoke-RestMethod -Method PATCH -Uri "https://$dest_url/policy/api/v1$srcgrp" -Headers $dest_header -Body $srcgroup_Body -SkipCertificateCheck
@@ -103,8 +103,8 @@ foreach ($rule in $policyContent_json.rules)
   { 
     # Start creating each non ANY group in target nsx
     Invoke-RestMethod -Method Get -Uri "https://$source_url/policy/api/v1$dstgrp" -headers $source_header -SkipCertificateCheck | ConvertTo-Json -Depth 10 | Set-Content group_detail.json
-    $dstgroup_Body = Get-Content -Path 'group_detail.json' -Raw ### Policy Content TXT Format
-    $dstgroup_json= Get-Content -Path 'group_detail.json' -Raw | ConvertFrom-Json ### Policy Content Powershell Array Format
+    $dstgroup_Body = Get-Content -Path 'group_detail.json' -Raw ### Group Content TXT Format
+    $dstgroup_json= Get-Content -Path 'group_detail.json' -Raw | ConvertFrom-Json ### Group Content Powershell Array Format
 
     ##############Starting to create the Security Group in the destination NSX  ###############
     Invoke-RestMethod -Method PATCH -Uri "https://$dest_url/policy/api/v1$dstgrp" -Headers $dest_header -Body $dstgroup_Body -SkipCertificateCheck
@@ -121,17 +121,17 @@ foreach ($rule in $policyContent_json.rules)
   { 
     try
     {
-    # START OF EACH Destination Group Loop
+    # START OF EACH Service Loop
   if ($service -ne "ANY") 
-  { # Start creating each non ANY group in target nsx
+  { # Start creating each non ANY Service in target nsx
     Invoke-RestMethod -Method Get -Uri "https://$source_url/policy/api/v1$service" -headers $source_header -SkipCertificateCheck | ConvertTo-Json -Depth 10 | Set-Content service_detail.json
-    $servicegroup_Body = Get-Content -Path 'service_detail.json' -Raw ### Policy Content TXT Format
-    $servicegroup_json= Get-Content -Path 'service_detail.json' -Raw | ConvertFrom-Json ### Policy Content Powershell Array Format
+    $servicegroup_Body = Get-Content -Path 'service_detail.json' -Raw ### Service Content TXT Format
+    $servicegroup_json= Get-Content -Path 'service_detail.json' -Raw | ConvertFrom-Json ### Service Content Powershell Array Format
 
     ##############Starting to create the Custom Service in the destination NSX  ###############
     Invoke-RestMethod -Method PATCH -Uri "https://$dest_url/policy/api/v1$service" -Headers $dest_header -Body $servicegroup_Body -SkipCertificateCheck
     Remove-Item "service_detail.json"
-    # END creating each non ANY Destination group in target nsx
+    # END creating each non ANY Service in target nsx
   } 
     }
     catch {Remove-Item "service_detail.json"}
@@ -150,5 +150,6 @@ Remove-Item  "policy_detail.json" ##empty the json file to avoid overwriting
 
 #END OF POLICY FOR LOOP
 }
+
 
 
