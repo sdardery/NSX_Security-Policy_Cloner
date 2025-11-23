@@ -19,3 +19,12 @@ Steps :
 4- The script will  ask you to authenticate both source and Destination NSX.
 
 5- Once script is complete , confirm results in dest NSX UI.
+
+
+UPDATE 1.6 :
+
+1- Added support for infinite nested services.
+
+2- Added support for creation of group members existing in "applied to" field.
+
+3- Verbosed version for clearer debugging.
