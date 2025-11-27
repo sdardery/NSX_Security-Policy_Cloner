@@ -32,12 +32,12 @@ $dest_header = @{ Authorization = "Basic $base64"; "Content-Type" = "application
 # ==== AUTH TEST ============================================================
 Write-Output "`nTesting NSX Authentication..."
 try {
-    Invoke-RestMethod "https://$source_url/policy/api/v1/infra" -Headers $source_header -SkipCertificateCheck -ErrorAction Stop
+    $test=Invoke-RestMethod "https://$source_url/policy/api/v1/infra" -Headers $source_header -SkipCertificateCheck -ErrorAction Stop
     Write-Output "✅ Authenticated to SOURCE $source_url"
 } catch { Write-Output "❌ Failed auth to SOURCE"; exit }
 
 try {
-    Invoke-RestMethod "https://$dest_url/policy/api/v1/infra" -Headers $dest_header -SkipCertificateCheck -ErrorAction Stop
+    $test=Invoke-RestMethod "https://$dest_url/policy/api/v1/infra" -Headers $dest_header -SkipCertificateCheck -ErrorAction Stop
     Write-Output "✅ Authenticated to DEST $dest_url"
 } catch { Write-Output "❌ Failed auth to DEST"; exit }
 
@@ -218,7 +218,7 @@ foreach ($policy in $policies)
     foreach ($rule in $policyJson.rules)
     {
         Write-Output "`n════════════════════════════════════════════════════════════"
-        Write-Output "🟦 Processing Rule: $($rule.id) — $($rule.display_name)"
+        Write-Output "🟦 Processing Rule:  $($rule.display_name)"
         Write-Output "════════════════════════════════════════════════════════════"
 
 
