@@ -29,7 +29,7 @@ UPDATE 1.6 :
 
 3- Verbosed version for clearer debugging.
 
-Update 1.8 : 
+Update 1.9 : 
 
 1- Added infinite Nested Groups
 
