@@ -1,3 +1,7 @@
+# =====================================================================================
+# NSX SECURITY POLICY + INFINITE DEPTH NESTED SERVICE & GROUP CLONER (DEBUG MODE)
+# Version: NSX Final Clean Script 1.6 + Nested Groups Support
+# =====================================================================================
 $ErrorActionPreference = "SilentlyContinue"
 
 # ==== INPUTS ==============================================================
@@ -30,70 +34,17 @@ Write-Output "`nTesting NSX Authentication..."
 try {
     $test=Invoke-RestMethod "https://$source_url/policy/api/v1/infra" -Headers $source_header -SkipCertificateCheck -ErrorAction Stop
     Write-Output "✅ Authenticated to SOURCE $source_url"
-} catch { Write-Output "❌ Failed to authenticate to SOURCE"; exit }
+} catch { Write-Output "❌ Failed auth to SOURCE"; exit }
 
 try {
     $test=Invoke-RestMethod "https://$dest_url/policy/api/v1/infra" -Headers $dest_header -SkipCertificateCheck -ErrorAction Stop
     Write-Output "✅ Authenticated to DEST $dest_url"
-} catch { Write-Output "❌ Failed to authenticate to DEST"; exit }
+} catch { Write-Output "❌ Failed auth to DEST"; exit }
 
 
 
 # =====================================================================================
-# FUNCTION — INFINITE DEPTH GROUP FETCHER
-# =====================================================================================
-function Get-FullGroupChain {
-    param(
-        [string]$GroupPath,
-        [Hashtable]$Cache,
-        [Hashtable]$Visited
-    )
-
-    if (-not $GroupPath.StartsWith("/infra/domains/")) { return @() }
-    if ($Visited.ContainsKey($GroupPath)) { return @() }
-
-    $Visited[$GroupPath] = $true
-    Write-Output "🔍 Inspect Group: $GroupPath"
-
-    if ($Cache.ContainsKey($GroupPath)) { return $Cache[$GroupPath] }
-
-    try {
-        $raw = Invoke-RestMethod -Method Get `
-            -Uri "https://$source_url/policy/api/v1$GroupPath" `
-            -Headers $source_header -SkipCertificateCheck
-    } catch {
-        Write-Output "   ❌ Failed GET group: $GroupPath"
-        return @()
-    }
-
-    if ($raw._system_owned -eq $true -or $raw.is_default -eq $true -or $raw._create_user -eq "system") {
-        Write-Output "ℹ️ Built-in NSX group — skipping: $GroupPath"
-        return @()
-    }
-
-    $Cache[$GroupPath] = @([PSCustomObject]@{
-        path = $GroupPath
-        body = ($raw | ConvertTo-Json -Depth 30)
-    })
-
-    foreach ($expr in $raw.expression) {
-        if ($expr.paths) {
-            foreach ($p in $expr.paths) {
-                if ($p.StartsWith("/infra/domains/")) {
-                    Write-Output "      → child group: $p"
-                    $Cache[$GroupPath] += Get-FullGroupChain -GroupPath $p -Cache $Cache -Visited $Visited
-                }
-            }
-        }
-    }
-
-    return $Cache[$GroupPath]
-}
-
-
-
-# =====================================================================================
-# FUNCTION — INFINITE DEPTH SERVICE FETCHER
+# FUNCTION: Get infinite chain of nested services
 # =====================================================================================
 function Get-FullServiceChain {
     param(
@@ -102,39 +53,131 @@ function Get-FullServiceChain {
         [Hashtable]$Visited
     )
 
-    if (-not $Path.StartsWith("/infra/services/")) { return @() }
+    $Path = [string]$Path
+
+    if (-not $Path.Trim().StartsWith("/infra/services/")) { return @() }
     if ($Visited.ContainsKey($Path)) { return @() }
 
     $Visited[$Path] = $true
-    Write-Output "🔍 Inspect Service: $Path"
+    Write-Output "🔍 Inspect: $Path"
 
-    if ($Cache.ContainsKey($Path)) { return $Cache[$Path] }
+    if ($Cache.ContainsKey($Path)) {
+        Write-Output "   ↪ Cached"
+        return $Cache[$Path]
+    }
 
     try {
         $raw = Invoke-RestMethod -Method Get `
             -Uri "https://$source_url/policy/api/v1$Path" `
             -Headers $source_header -SkipCertificateCheck
-    } catch {
-        Write-Output "   ❌ Failed GET service: $Path"
+    }
+    catch {
+        Write-Output "   ❌ Failed GET: $Path"
+        $Cache[$Path] = @()
         return @()
     }
 
-    if ($raw._system_owned -eq $true -or $raw.is_default -eq $true) {
-        Write-Output "ℹ️ Built-in NSX service — skipping: $Path"
+    if (
+        $raw._system_owned -eq $true -or
+        $raw.is_default -eq $true -or
+        $raw._create_user -eq "system"
+    ) {
+        Write-Output "ℹ️ Built-in NSX service — no patch required: $Path"
         return @()
     }
 
+    $json = $raw | ConvertTo-Json -Depth 30
     $Cache[$Path] = @([PSCustomObject]@{
         path = $Path
-        body = ($raw | ConvertTo-Json -Depth 30)
+        body = $json
     })
 
-    foreach ($entry in $raw.service_entries) {
-        $nested = $entry.nested_service_path
-        if ($nested -and $nested.StartsWith("/infra/services/")) {
-            Write-Output "      → child service: $nested"
-            $Cache[$Path] += Get-FullServiceChain -Path $nested -Cache $Cache -Visited $Visited
+    $children = @()
+    if ($raw.service_entries) {
+        foreach ($e in $raw.service_entries) {
+            $nested = ([string]$e.nested_service_path).Trim()
+            if ($nested -ne "" -and $nested.StartsWith("/infra/services/")) {
+                $children += $nested
+            }
         }
+    }
+
+    foreach ($child in $children) {
+        Write-Output "      → child: $child"
+        $Cache[$Path] += Get-FullServiceChain -Path $child -Cache $Cache -Visited $Visited
+    }
+
+    return $Cache[$Path]
+}
+
+
+
+# =====================================================================================
+# FUNCTION: Get infinite chain of nested groups  (NEW)
+# =====================================================================================
+function Get-FullGroupChain {
+    param(
+        [string]$Path,
+        [Hashtable]$Cache,
+        [Hashtable]$Visited
+    )
+
+    $Path = [string]$Path
+
+    if (-not $Path.Trim().StartsWith("/infra/domains/")) { return @() }
+    if ($Visited.ContainsKey($Path)) { return @() }
+
+    $Visited[$Path] = $true
+    Write-Output "🔍 Inspect Group: $Path"
+
+    if ($Cache.ContainsKey($Path)) {
+        Write-Output "   ↪ Cached"
+        return $Cache[$Path]
+    }
+
+    try {
+        $raw = Invoke-RestMethod -Method GET `
+            -Uri "https://$source_url/policy/api/v1$Path" `
+            -Headers $source_header -SkipCertificateCheck
+    }
+    catch {
+        Write-Output "   ❌ Failed GET group: $Path"
+        $Cache[$Path] = @()
+        return @()
+    }
+
+    if (
+        $raw._system_owned -eq $true -or
+        $raw.is_default -eq $true -or
+        $raw._create_user -eq "system"
+    ) {
+        Write-Output "   ℹ️ Built-in NSX group — skip: $Path"
+        return @()
+    }
+
+    $json = $raw | ConvertTo-Json -Depth 30
+    $Cache[$Path] = @([PSCustomObject]@{
+        path = $Path
+        body = $json
+    })
+
+    # Find nested groups
+    $children = @()
+    if ($raw.expression) {
+        foreach ($expr in $raw.expression) {
+            if ($expr.resource_type -eq "NestedGroupExpression") {
+                foreach ($c in $expr.paths) {
+                    if ($c.StartsWith("/infra/domains/")) {
+                        $children += $c
+                    }
+                }
+            }
+        }
+    }
+
+    foreach ($child in $children) {
+        Write-Output "      → nested group: $child"
+        $Cache[$Path] += Get-FullGroupChain -Path $child -Cache $Cache -Visited $Visited
     }
 
     return $Cache[$Path]
@@ -146,7 +189,7 @@ function Get-FullServiceChain {
 # MAIN POLICY LOOP
 # =====================================================================================
 
-$policies = Get-Content $filePath
+$policies = [System.IO.File]::ReadAllLines($filePath)
 
 foreach ($policy in $policies)
 {
@@ -155,148 +198,212 @@ foreach ($policy in $policies)
     Write-Output "----------------------------------------------`n"
 
     try {
-        Invoke-RestMethod -Method Get `
-            -Uri "https://$source_url/policy/api/v1$policy" `
+        Invoke-RestMethod -Method Get -Uri "https://$source_url/policy/api/v1$policy" `
             -Headers $source_header -SkipCertificateCheck |
             ConvertTo-Json -Depth 30 | Set-Content policy_detail.json
-    } catch {
+    }
+    catch {
         Write-Output "❌ Policy not found, skipping..."
         continue
     }
 
-    $policyJson = Get-Content policy_detail.json -Raw | ConvertFrom-Json
+    $policyBody = Get-Content policy_detail.json -Raw
+    $policyJson = $policyBody | ConvertFrom-Json
+
 
 
     # =====================================================================
-    # RULE LOOP
+    # RULES
     # =====================================================================
     foreach ($rule in $policyJson.rules)
     {
-        Write-Output "`n════════════════════════════════════════════════════════════"
-        Write-Output "🟦 Processing Rule: $($rule.display_name)"
+        Write-Output ""
+        Write-Output "════════════════════════════════════════════════════════════"
+        Write-Output "🟦 Processing Rule:"
+        Write-Output "   • ID: $($rule.id)"
+        Write-Output "   • Name: $($rule.display_name)"
+        Write-Output "   • Sources: $($rule.source_groups -join ', ')"
+        Write-Output "   • Destinations: $($rule.destination_groups -join ', ')"
+        Write-Output "   • Scope: $($rule.scope -join ', ')"
+        Write-Output "   • Services: $($rule.services -join ', ')"
         Write-Output "════════════════════════════════════════════════════════════"
 
 
+
         # =====================================================================
-        # GROUP CLONING
+        # GROUPS WITH NESTED RECURSION  (NEW)
         # =====================================================================
         $allGroups = @()
 
         if ($rule.source_groups) { $allGroups += $rule.source_groups }
         if ($rule.destination_groups) { $allGroups += $rule.destination_groups }
-        if ($rule.scope) { $allGroups += ($rule.scope | Where-Object { $_ -ne "ANY" }) }
+
+        if ($rule.scope) {
+            foreach ($s in $rule.scope) {
+                if ($s -ne "ANY") { $allGroups += $s }
+            }
+        }
 
         foreach ($grp in $allGroups)
         {
             if ($grp -eq "ANY") { continue }
 
-            Write-Output "`n📦 Fetching Group Chain: $grp"
+            Write-Output "📦 Group: $grp"
 
-            $CacheG = @{}
-            $VisitedG = @{}
-            $chainG = Get-FullGroupChain $grp $CacheG $VisitedG
+            # ==================== NEW: Nested Group Recursion ====================
+            $GCache = @{}
+            $GVisited = @{}
+            $gChain = Get-FullGroupChain -Path $grp -Cache $GCache -Visited $GVisited
 
-            if ($chainG.Count -eq 0) {
-                Write-Output "   ℹ Built-in group — skipping: $grp"
-                continue
-            }
-
-            $unique = @{}
-            foreach ($item in $chainG) {
-                if (-not $unique.ContainsKey($item.path)) {
-                    $unique[$item.path] = $item.body
+            $uniqueG = @{}
+            foreach ($item in $gChain) {
+                if (-not $uniqueG.ContainsKey($item.path)) {
+                    $uniqueG[$item.path] = $item.body
                 }
             }
 
-            foreach ($p in ($unique.Keys | Sort-Object -Descending)) {
-                Write-Output "🔧 Patching group: $p"
+            $orderedG = $uniqueG.Keys | Sort-Object -Descending
+
+            foreach ($p in $orderedG) {
+                Write-Output "🔧 Patching nested group: $p"
                 try {
                     Invoke-RestMethod -Method PATCH `
                         -Uri "https://$dest_url/policy/api/v1$p" `
-                        -Headers $dest_header `
-                        -Body $unique[$p] `
-                        -SkipCertificateCheck
-                    Write-Output "   ✅ Group patched: $p"
-                } catch {
-                    Write-Output "   ❌ Failed group patch: $p"
+                        -Headers $dest_header -Body $uniqueG[$p] -SkipCertificateCheck
+                    Write-Output "   ✅ Patched nested group"
                 }
+                catch {
+                    Write-Output "   ❌ Failed nested group patch"
+                }
+            }
+
+            # ==================== Patch parent group as before ====================
+            try {
+                $raw = Invoke-RestMethod -Method Get `
+                    -Uri "https://$source_url/policy/api/v1$grp" `
+                    -Headers $source_header -SkipCertificateCheck
+            }
+            catch {
+                Write-Output "   ❌ Failed GET group: $grp"
+                continue
+            }
+
+            if (
+                $raw._system_owned -eq $true -or
+                $raw.is_default -eq $true -or
+                $raw._create_user -eq "system"
+            ) {
+                Write-Output "   ℹ️ Built-in NSX group — no patch required: $grp"
+                continue
+            }
+
+            $g = $raw | ConvertTo-Json -Depth 30
+            try {
+                Invoke-RestMethod -Method PATCH `
+                    -Uri "https://$dest_url/policy/api/v1$grp" `
+                    -Headers $dest_header -Body $g -SkipCertificateCheck
+
+                Write-Output "   ✅ Group patched"
+            }
+            catch {
+                Write-Output "   ❌ Failed to patch group: $grp"
             }
         }
 
 
 
+
         # =====================================================================
-        # SERVICE CLONING (FIXED IN v2.1)
+        # SERVICES — INFINITE DEPTH (UNTOUCHED)
         # =====================================================================
         foreach ($service in $rule.services)
         {
             if ($service -eq "ANY") { continue }
 
-            Write-Output "`n📄 Fetching Service Chain: $service"
+            Write-Output "`n📄 Fetching Service: $service"
 
-            $CacheS = @{}
-            $VisitedS = @{}
-            $chainS = Get-FullServiceChain $service $CacheS $VisitedS
+            $Cache = @{}
+            $Visited = @{}
+            $chain = Get-FullServiceChain -Path $service -Cache $Cache -Visited $Visited
 
-            if ($chainS.Count -eq 0) {
-                Write-Output "   ℹ Built-in service — skipping: $service"
+            if ($chain.Count -eq 0) {
+                Write-Output "   ℹ️ Built-in NSX service — no patch required: $service"
                 continue
             }
 
-            $uniqueS = @{}
-            foreach ($item in $chainS) {
-                if (-not $uniqueS.ContainsKey($item.path)) {
-                    $uniqueS[$item.path] = $item.body
+            $unique = @{}
+            foreach ($item in $chain) {
+                if (-not $unique.ContainsKey($item.path)) {
+                    $unique[$item.path] = $item.body
                 }
             }
 
-            foreach ($p in ($uniqueS.Keys | Sort-Object -Descending)) {
-                Write-Output "🔧 Patching service: $p"
+            $ordered = $unique.Keys | Sort-Object -Descending
+
+
+            # Patch children
+            foreach ($p in $ordered) {
+                if ($p -eq $service) { continue }
+
+                Write-Output "🔧 Patching nested: $p"
                 try {
                     Invoke-RestMethod -Method PATCH `
                         -Uri "https://$dest_url/policy/api/v1$p" `
-                        -Headers $dest_header `
-                        -Body $uniqueS[$p] `
+                        -Headers $dest_header -Body $unique[$p] `
                         -SkipCertificateCheck
-                    Write-Output "   ✅ Patched service: $p"
-                } catch {
-                    Write-Output "   ❌ Failed service: $p"
+                    Write-Output "   ✅ Patched $p"
+                }
+                catch {
+                    Write-Output "   ❌ Failed: $p"
                 }
             }
+
+            # Patch parent
+            try {
+                $rawParent = Invoke-RestMethod -Method Get `
+                    -Uri "https://$source_url/policy/api/v1$service" `
+                    -Headers $source_header -SkipCertificateCheck
+
+                if (
+                    $rawParent._system_owned -eq $true -or
+                    $rawParent.is_default -eq $true -or
+                    $rawParent._create_user -eq "system"
+                ) {
+                    Write-Output "   ℹ️ Built-in NSX service — no patch required: $service"
+                    continue
+                }
+            }
+            catch {}
+
+            Write-Output "🔵 Patching parent service: $service"
+            try {
+                Invoke-RestMethod -Method PATCH `
+                    -Uri "https://$dest_url/policy/api/v1$service" `
+                    -Headers $dest_header -Body $unique[$service] `
+                    -SkipCertificateCheck
+                Write-Output "   ✅ Parent patched"
+            }
+            catch {
+                Write-Output "   ❌ Failed parent: $service"
+            }
         }
-
-
-
-        # =====================================================================
-        # PATCH RULE (NO SUCCESS/FAIL CHECK)
-        # =====================================================================
-        Write-Output "`n🔵 Patching Rule: $($rule.path)"
-
-        Invoke-RestMethod -Method PATCH `
-            -Uri "https://$dest_url/policy/api/v1$($rule.path)" `
-            -Headers $dest_header `
-            -Body ($rule | ConvertTo-Json -Depth 30) `
-            -SkipCertificateCheck `
-            -ErrorAction SilentlyContinue
-
-        # No success/fail output
     }
 
 
 
     # =====================================================================
-    # PATCH POLICY
+    # PATCH POLICY (WITH COLORS)
     # =====================================================================
     Write-Output "`n📘 Patching Policy: $policy"
     try {
         Invoke-RestMethod -Method PATCH `
             -Uri "https://$dest_url/policy/api/v1$policy" `
-            -Headers $dest_header `
-            -Body (Get-Content policy_detail.json -Raw) `
+            -Headers $dest_header -Body $policyBody `
             -SkipCertificateCheck
 
-        Write-Output "`e[32m✅ Policy created successfully: $policy`e[0m"
-    } catch {
-        Write-Output "`e[31m❌ Policy patch failed: $policy`e[0m"
+        Write-Output "`e[32m✅✅ Policy created successfully: $policy ✅✅`e[0m"
+    }
+    catch {
+        Write-Output "`e[31m❌ Policy patch failed: $policy ❌`e[0m"
     }
 }
