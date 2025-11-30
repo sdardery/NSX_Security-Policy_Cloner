@@ -29,8 +29,8 @@ UPDATE 1.6 :
 
 3- Verbosed version for clearer debugging.
 
-Update 1.9 : 
+Update 2.0 : 
 
 1- Added infinite Nested Groups
 
-2- Print output of successful/unsuccessful rule patching
+
