@@ -1,6 +1,6 @@
 # =====================================================================================
 # NSX SECURITY POLICY + INFINITE DEPTH NESTED SERVICE & GROUP CLONER (DEBUG MODE)
-# Version: NSX Final Clean Script 1.6 + Nested Groups Support
+# Version: NSX Final Clean Script 2.2
 # =====================================================================================
 $ErrorActionPreference = "SilentlyContinue"
 
