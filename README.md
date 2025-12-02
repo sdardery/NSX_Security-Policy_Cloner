@@ -33,6 +33,6 @@ Update 1.9.3 :
 
 1- Added infinite Nested Groups
 
-2- In case of a rule that contains nested groups and nested services. Run the Script Twice in order for the policy to be migrated ( WIP to be fixed in the upcoming versions)
+2- VERY IMPORTANT : If you saw failed policy creation just run the script twice.
 
 
