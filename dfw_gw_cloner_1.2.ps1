@@ -8,6 +8,14 @@
 $nsx_url = Read-Host "Enter NSX Manager FQDN or IP"
 $creds   = Get-Credential -Message "Enter NSX credentials"
 
+# ==== HEADERS =============================================================
+$base64 = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes(
+        "$($creds.username):$($creds.GetNetworkCredential().Password)"
+    )
+)
+$headers = @{ Authorization = "Basic $base64" }
+
 Write-Host "`nTesting NSX Authentication..."
 
 try {
