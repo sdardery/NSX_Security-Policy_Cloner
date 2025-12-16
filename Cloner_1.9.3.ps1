@@ -1,11 +1,11 @@
 $ErrorActionPreference = "SilentlyContinue"
 
 # ==== INPUTS ==============================================================
-#$source_url = Read-Host "Enter SOURCE NSX FQDN or IP"
-#$sourceCreds = Get-Credential -Message "SOURCE NSX credentials"
+$source_url = Read-Host "Enter SOURCE NSX FQDN or IP"
+$sourceCreds = Get-Credential -Message "SOURCE NSX credentials"
 
-#$dest_url = Read-Host "Enter DESTINATION NSX FQDN or IP"
-#$destCreds = Get-Credential -Message "DESTINATION NSX credentials"
+$dest_url = Read-Host "Enter DESTINATION NSX FQDN or IP"
+$destCreds = Get-Credential -Message "DESTINATION NSX credentials"
 
 $filePath = "policies.txt"
 
